@@ -1,6 +1,6 @@
 from rest_framework.views import APIView
 from rest_framework.response import Response
-from powerplants.models import PowerPlant
+from powerplants.models import PowerPlant, State
 from django.db.models import Sum
 from rest_framework.renderers import JSONRenderer
 
@@ -20,6 +20,8 @@ class TopNPowerPlants(APIView):
                 'PSTATABB': plant.PSTATABB,
                 'PNAME': plant.PNAME,
                 'GENNTAN': plant.GENNTAN,
+                'LAT': plant.LAT,
+                'LON': plant.LON,
             })
         return Response(data)
 
@@ -28,17 +30,23 @@ class PowerPlantStats(APIView):
 
     def get(self, request, state=None):
         queryset = PowerPlant.objects.all()
+        TOTALGENERATION = None
         if state:
             queryset = queryset.filter(PSTATABB=state)
-        total_generation = queryset.aggregate(Sum('GENNTAN'))['GENNTAN__sum']
+            TOTALGENERATION = State.objects.get(PSTATABB=state).TOTALGENNTAN
         data = []
+        total_generation = None
         for plant in queryset:
-            percentage = (plant.GENNTAN / total_generation) * 100 if total_generation else 0
+            if not TOTALGENERATION:
+                total_generation = State.objects.get(PSTATABB=plant.PSTATABB).TOTALGENNTAN
+            percentage = (plant.GENNTAN / (total_generation if not TOTALGENERATION else TOTALGENERATION)) * 100 if (total_generation or TOTALGENERATION) else 0
             data.append({
                 'PSTATABB': plant.PSTATABB,
                 'PNAME': plant.PNAME,
                 'GENNTAN': plant.GENNTAN,
-                'Percentage': percentage,
+                'LAT': plant.LAT,
+                'LON': plant.LON,
+                'PERCENTAGE': percentage,
             })
         return Response(data)
 
